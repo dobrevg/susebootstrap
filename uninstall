@@ -1,0 +1,4 @@
+#!/bin/sh
+
+rm -rfv /usr/share/susebootstrap
+rm -f   /usr/sbin/susebootstrap

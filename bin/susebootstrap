@@ -1,0 +1,252 @@
+#!/bin/bash
+# susebootstrap - 
+#
+# Copyright (C) 2013 Georgi Dobrev <dobrev.g@gmail.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA.
+
+
+
+# TODO: Test installed programs
+# TODO: Test target dir (required)
+# TODO: Test --include (optional) --include=A,B,C         Adds specified names to the list of base packages
+# TODO: Test --verbose (optional)
+
+
+# Set default mirror
+MIRROR="http://download.opensuse.org/distribution/"
+REPOSITORY=""
+
+# Set default arch to 64 bit
+ARCH="x86_64"
+
+# Set default distributions version
+DIST="openSUSE-current"
+
+# Verbose mode
+VERBOSE=false
+
+# Get current directory
+CURRENT_DIR=$(pwd)
+
+#### DO NOT CHANGE ANYTHIG BELOW THIS LINE ####
+PACKAGELISTDIR="/usr/share/susebootstrap"
+
+
+# Test if some programs are installed
+CURL=$(which curl 2> /dev/null)
+test ${CURL} || { echo "Curl is not installed."; exit 1;}
+CURL_OPTS="-s"
+
+GREP=$(which grep 2> /dev/null)
+test ${GREP} || { echo "Grep is not installed."; exit 1;}
+
+PING=$(which ping 2> /dev/null)
+test ${PING} || { echo "Ping is not installed."; exit 1;}
+
+AWK=$(which awk 2> /dev/null)
+test ${AWK} || { echo "Awk is not installed."; exit 1;}
+
+ZYPPER=$(which zypper 2> /dev/null)
+test ${ZYPPER} || { echo "Zypper is not installed."; exit 1;}
+ZYPPER_OPTS="--non-interactive --gpg-auto-import-keys"
+ZYPPER_VERBOSE_OPTS="--quiet"
+
+CUT=$(which cut 2> /dev/null)
+test ${CUT} || { echo "Cut is not installed."; exit 1;}
+
+CAT=$(which cat 2> /dev/null)
+test ${CAT} || { echo "Cat is not installed."; exit 1;}
+
+REV=$(which rev 2> /dev/null)
+test ${REV} || { echo "Rev is not installed."; exit 1;}
+
+GUNZIP=$(which gunzip 2> /dev/null)
+test ${GUNZIP} || { echo "Gunzip is not installed."; exit 1;}
+
+
+# Test if we have internet connection
+${PING} download.opensuse.org -c 1 &> /dev/null
+PING_RESULT=$(echo $?)
+
+if ( test "${PING_RESULT}" != "0" ) ; then
+    echo
+    echo "Can't connect to the server or no internet connection."
+    echo
+    exit 1 
+fi
+
+# Print Version
+version()
+{
+    echo "${0##*/} 0.1 (cli)"
+    echo "Copyright (c) 2013 Georgi Dobrev"
+}
+
+# Usage on error
+usage_err()
+{
+    echo "usage: ${0##*/} [OPTION]... TARGET_DIR"
+    echo "Try '${0##*/} --help' for more information."
+    exit 10
+}
+
+# Usage and --help
+usage()
+{
+    echo "usage: ${0##*/} [OPTION]... TARGET_DIR"
+    echo "Bootstrap openSUSE base system."
+    echo
+    cat<<EOF
+    --help                  Display this help and exit
+    --version               Display version information and exit
+    --verbose, -v           Be more verbose
+    --arch=A, --arch A      Set the target architecture. i586 | x86_64
+                            Default: x86_64
+    --repo=A, --repo A      Set repository. If you don't set any repo, then the current stable will be used.
+                            Default: http://download.opensuse.org/distribution/openSUSE-current/repo/oss/
+
+EOF
+}
+
+# Filtering the parameters
+if [ $# != 0 ]  
+then
+    while true 
+    do
+        case "$1" in 
+            --help)
+                usage
+                exit 0
+                ;;
+            --version)
+                version
+                exit 0
+                ;;
+            --arch|--arch=?*)
+                if [ "$1" = "--arch" -a -n "$2" ] 
+                then
+                    ARCH="$2"
+                    shift 2
+                elif [ "$1" != "${1#--arch=}" ] 
+                then
+                    ARCH="${1#--arch=}"
+                    shift
+                else 
+                    echo "option requires an argument $1"
+                    exit 1
+                fi
+                ;;
+            --repo|--repo=?*)
+                if [ "$1" = "--repo" -a -n "$2" ]
+                then
+                    REPOSITORY="$2"
+                    shift 2
+                elif [ "$1" != "${1#--repo=}" ]
+                then
+                    REPOSITORY="${1#--repo=}"
+                    shift
+                else
+                    echo "option requires an argument $1"
+                    exit 1
+                fi
+                ;;
+            --verbose|-v)
+                VERBOSE=true
+                shift
+                ;;
+            --)       # Stop option processing.
+                shift; break
+                ;;
+            --*|-*)
+                echo "unrecognized or invalid option $1" 
+                exit 1
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
+fi
+
+# Check if target root exists and is not current root
+ROOT="$1"
+test    ${ROOT} || { usage_err; exit 1;} 
+test -d ${ROOT} || { echo "Target directory doesn't exists or is not directory"; exit 1;}
+if [ "${ROOT}" == "/" ]
+then
+    echo "The target root directory is set to the current root."
+    echo "If I continue, this may damage your installed system."
+    echo "Continue: yes or no [no]"
+    read CONTINUE
+    if [ "${CONTINUE}" != "yes" ]
+    then 
+        exit 1
+    fi
+fi
+
+    
+# Additional Options
+
+# Set verbose mode
+if ( ${VERBOSE} ) 
+then
+    CURL_OPTS="--progress-bar"
+    ZYPPER_VERBOSE_OPTS=""
+fi
+
+
+
+# Check if repository set and set if not
+if [ "${REPOSITORY}" == "" ]
+then
+     REPOSITORY="${MIRROR}${DIST}/repo/oss/"
+fi
+
+# Set default(current stable) distributions version
+DIST=$(${CURL} -s ${REPOSITORY}content | ${GREP} VERSION | ${AWK} '{print $2}')
+
+${VERBOSE} && echo "Distribution: openSUSE ${DIST}"
+${VERBOSE} && echo "Architecture: ${ARCH}"
+
+
+# If repository is set, check if it exists
+if [ "${REPOSITORY}" != "" ]
+then
+    ${VERBOSE} && { echo ""; echo "Checking if repo contains the distribution:"; }
+    REPO_EXISTS=$(${CURL} ${CURL_OPTS} ${REPOSITORY} | ${GREP} 404 | ${AWK} '{print $2}' | ${CUT} -f1 -d'<')
+    if [ "${REPO_EXISTS}" == "404" ]
+    then
+        echo "This repository doesn't contain the requested distribution"
+        exit 1
+    fi
+fi
+
+
+
+# And define Packetlist for every distro
+${VERBOSE} && echo -n "Load packetlist......................................................... "
+!(test -r ${CURRENT_DIR}/packetlist-${DIST}-${ARCH}) && { echo "There is no package list for distribution: ${DIST}-${ARCH}"; exit 1; }
+test -r ${CURRENT_DIR}/packetlist-${DIST}-${ARCH} && LIST=$(${CAT} ${PACKAGELISTDIR}/packagelist-${DIST}-${ARCH})
+${VERBOSE} && echo "OK"
+
+# And install packets
+${VERBOSE} && echo -n "Running installation.................................................... "
+${ZYPPER} ${ZYPPER_OPTS} ${ZYPPER_VERBOSE_OPTS} --root ${ROOT} --plus-repo ${REPOSITORY} install ${LIST} > /dev/null
+${VERBOSE} && echo "Finished"
+
+# Begin Script END. 
+
+# Script END

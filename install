@@ -1,0 +1,6 @@
+#!/bin/sh
+
+mkdir -pv /usr/share/susebootstrap
+cp -v packagelists/*  /usr/share/susebootstrap/
+
+cp -v bin/susebootstrap /usr/sbin/

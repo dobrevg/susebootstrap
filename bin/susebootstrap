@@ -113,6 +113,7 @@ usage()
     --help                  Display this help and exit
     --version               Display version information and exit
     --verbose, -v           Be more verbose
+    --debug,   -d           Print a lot of ugly information
     --arch=A, --arch A      Set the target architecture. i586 | x86_64
                             Default: x86_64
     --repo=A, --repo A      Set repository. If you don't set any repo, then the current stable will be used.
@@ -165,6 +166,10 @@ then
                 ;;
             --verbose|-v)
                 VERBOSE=true
+                shift
+                ;;
+            --debug|-d)
+                DEBUG=true
                 shift
                 ;;
             --)       # Stop option processing.
@@ -238,13 +243,17 @@ fi
 
 # And define Packetlist for every distro
 ${VERBOSE} && echo -n "Load packetlist......................................................... "
-!(test -r ${CURRENT_DIR}/packetlist-${DIST}-${ARCH}) && { echo "There is no package list for distribution: ${DIST}-${ARCH}"; exit 1; }
-test -r ${CURRENT_DIR}/packetlist-${DIST}-${ARCH} && LIST=$(${CAT} ${PACKAGELISTDIR}/packagelist-${DIST}-${ARCH})
+!(test -r ${PACKAGELISTDIR}/packagelist-${DIST}-${ARCH}) && { echo "There is no package list for distribution: ${DIST}-${ARCH}"; exit 1; }
+test -r ${PACKAGELISTDIR}/packagelist-${DIST}-${ARCH} && LIST=$(${CAT} ${PACKAGELISTDIR}/packagelist-${DIST}-${ARCH})
 ${VERBOSE} && echo "OK"
 
 # And install packets
 ${VERBOSE} && echo -n "Running installation.................................................... "
-${ZYPPER} ${ZYPPER_OPTS} ${ZYPPER_VERBOSE_OPTS} --root ${ROOT} --plus-repo ${REPOSITORY} install ${LIST} > /dev/null
+if [ ${DEBUG} ] ; then
+    ${ZYPPER} ${ZYPPER_OPTS} ${ZYPPER_VERBOSE_OPTS} --root ${ROOT} --plus-repo ${REPOSITORY} install ${LIST} 
+else
+    ${ZYPPER} ${ZYPPER_OPTS} ${ZYPPER_VERBOSE_OPTS} --root ${ROOT} --plus-repo ${REPOSITORY} install ${LIST} > /dev/null
+fi
 ${VERBOSE} && echo "Finished"
 
 # Begin Script END. 

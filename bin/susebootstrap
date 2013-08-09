@@ -250,9 +250,9 @@ ${VERBOSE} && echo "OK"
 # And install packets
 ${VERBOSE} && echo -n "Running installation.................................................... "
 if [ ${DEBUG} ] ; then
-    ${ZYPPER} ${ZYPPER_OPTS} ${ZYPPER_VERBOSE_OPTS} --root ${ROOT} --plus-repo ${REPOSITORY} install ${LIST} 
+    ${ZYPPER} ${ZYPPER_OPTS} ${ZYPPER_VERBOSE_OPTS} --root ${ROOT} --plus-repo ${REPOSITORY} install --auto-agree-with-licenses ${LIST} 
 else
-    ${ZYPPER} ${ZYPPER_OPTS} ${ZYPPER_VERBOSE_OPTS} --root ${ROOT} --plus-repo ${REPOSITORY} install ${LIST} > /dev/null
+    ${ZYPPER} ${ZYPPER_OPTS} ${ZYPPER_VERBOSE_OPTS} --root ${ROOT} --plus-repo ${REPOSITORY} install --auto-agree-with-licenses ${LIST} > /dev/null
 fi
 ${VERBOSE} && echo "Finished"
 

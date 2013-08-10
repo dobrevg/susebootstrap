@@ -111,7 +111,7 @@ usage()
     echo
     cat<<EOF
     --help                  Display this help and exit
-    --version               Display version information and exit
+    --version, -h           Display version information and exit
     --verbose, -v           Be more verbose
     --debug,   -d           Print a lot of ugly information
     --arch=A, --arch A      Set the target architecture. i586 | x86_64
@@ -128,7 +128,7 @@ then
     while true 
     do
         case "$1" in 
-            --help)
+            --help|-h)
                 usage
                 exit 0
                 ;;
